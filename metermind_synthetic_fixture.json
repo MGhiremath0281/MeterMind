@@ -1,0 +1,941 @@
+{
+  "billing_period": "2026-07",
+  "customers": [
+    {
+      "customer_id": "CUS-1001",
+      "name": "Acme AI",
+      "plan_id": "STARTER",
+      "currency": "USD"
+    },
+    {
+      "customer_id": "CUS-1002",
+      "name": "Northstar Apps",
+      "plan_id": "GROWTH",
+      "currency": "USD"
+    },
+    {
+      "customer_id": "CUS-1003",
+      "name": "Orbit API",
+      "plan_id": "PRO",
+      "currency": "USD"
+    },
+    {
+      "customer_id": "CUS-1004",
+      "name": "Pinecone Labs",
+      "plan_id": "STARTER",
+      "currency": "USD"
+    }
+  ],
+  "pricing_versions": [
+    {
+      "pricing_version_id": "PRICE-STARTER-V1",
+      "plan_id": "STARTER",
+      "unit_price": "0.0100",
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-06-30"
+    },
+    {
+      "pricing_version_id": "PRICE-STARTER-V2",
+      "plan_id": "STARTER",
+      "unit_price": "0.0120",
+      "effective_from": "2026-07-01",
+      "effective_to": null
+    },
+    {
+      "pricing_version_id": "PRICE-GROWTH-V1",
+      "plan_id": "GROWTH",
+      "unit_price": "0.0080",
+      "effective_from": "2026-01-01",
+      "effective_to": null
+    },
+    {
+      "pricing_version_id": "PRICE-PRO-V1",
+      "plan_id": "PRO",
+      "unit_price": "0.0050",
+      "effective_from": "2026-01-01",
+      "effective_to": null
+    }
+  ],
+  "clean_events": [
+    {
+      "event_id": "EVT-1001-001",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 377,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-002",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 107,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-003",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 62,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-004",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 429,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-005",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 190,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-006",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 175,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-007",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 164,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-008",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 121,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-009",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 427,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-010",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 102,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-011",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 396,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-012",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 429,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-001",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 329,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-002",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 94,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-003",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 352,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-004",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 266,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-005",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 66,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-006",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 65,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-007",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 97,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-008",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 161,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-009",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 169,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-010",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 308,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-011",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 358,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-012",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 63,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-001",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 337,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-002",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 151,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-003",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 416,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-004",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 382,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-005",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 409,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-006",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 329,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-007",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 264,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-008",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 162,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-009",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 279,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-010",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 351,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-011",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 192,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-012",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 464,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-001",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 495,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-002",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 53,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-003",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 438,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-004",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 462,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-005",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 131,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-006",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 407,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-007",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 266,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-008",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 224,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-009",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 192,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-010",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 129,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-011",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 160,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-012",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 440,
+      "metric": "api_request",
+      "status": "accepted"
+    }
+  ],
+  "observed_events": [
+    {
+      "event_id": "EVT-1001-001",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 377,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-002",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 107,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-003",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 62,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-004",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 429,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-005",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 190,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-006",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 175,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-007",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 164,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-008",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 121,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-010",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 102,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-011",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 396,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-012",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 429,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-001",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 329,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-002",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 94,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-003",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 352,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-004",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 266,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-005",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 66,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-006",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 65,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-007",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 97,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-008",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 161,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-009",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 169,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-010",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 308,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-011",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 358,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1002-012",
+      "customer_id": "CUS-1002",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 63,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-001",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 337,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-002",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 151,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-003",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 416,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-004",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 382,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-005",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 409,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-006",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 329,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-007",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 264,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-008",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 162,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-009",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 279,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-010",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 351,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-011",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 192,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1003-012",
+      "customer_id": "CUS-1003",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 464,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-001",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-01T03:00:00+00:00",
+      "quantity": 495,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-002",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-02T06:00:00+00:00",
+      "quantity": 53,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-003",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 438,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-004",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-04T12:00:00+00:00",
+      "quantity": 462,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-005",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-05T15:00:00+00:00",
+      "quantity": 131,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-006",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-06T18:00:00+00:00",
+      "quantity": 407,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-007",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-07T21:00:00+00:00",
+      "quantity": 266,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-008",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-08T00:00:00+00:00",
+      "quantity": 224,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-009",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-09T03:00:00+00:00",
+      "quantity": 192,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-010",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-10T06:00:00+00:00",
+      "quantity": 129,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-011",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-11T09:00:00+00:00",
+      "quantity": 160,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1004-012",
+      "customer_id": "CUS-1004",
+      "occurred_at": "2026-07-12T12:00:00+00:00",
+      "quantity": 440,
+      "metric": "api_request",
+      "status": "accepted"
+    },
+    {
+      "event_id": "EVT-1001-003",
+      "customer_id": "CUS-1001",
+      "occurred_at": "2026-07-03T09:00:00+00:00",
+      "quantity": 62,
+      "metric": "api_request",
+      "status": "accepted"
+    }
+  ],
+  "baseline_invoice_lines": [
+    {
+      "invoice_line_id": "LINE-0001",
+      "invoice_id": "INV-1001-2026-07",
+      "customer_id": "CUS-1001",
+      "billing_period": "2026-07",
+      "quantity": 2979,
+      "unit_price": "0.0120",
+      "amount": "35.75",
+      "pricing_version_id": "PRICE-STARTER-V2"
+    },
+    {
+      "invoice_line_id": "LINE-0002",
+      "invoice_id": "INV-1002-2026-07",
+      "customer_id": "CUS-1002",
+      "billing_period": "2026-07",
+      "quantity": 2328,
+      "unit_price": "0.0080",
+      "amount": "18.62",
+      "pricing_version_id": "PRICE-GROWTH-V1"
+    },
+    {
+      "invoice_line_id": "LINE-0003",
+      "invoice_id": "INV-1003-2026-07",
+      "customer_id": "CUS-1003",
+      "billing_period": "2026-07",
+      "quantity": 3736,
+      "unit_price": "0.0050",
+      "amount": "18.68",
+      "pricing_version_id": "PRICE-PRO-V1"
+    },
+    {
+      "invoice_line_id": "LINE-0004",
+      "invoice_id": "INV-1004-2026-07",
+      "customer_id": "CUS-1004",
+      "billing_period": "2026-07",
+      "quantity": 3397,
+      "unit_price": "0.0120",
+      "amount": "40.76",
+      "pricing_version_id": "PRICE-STARTER-V2"
+    }
+  ],
+  "observed_invoice_lines": [
+    {
+      "invoice_line_id": "LINE-0001",
+      "invoice_id": "INV-1001-2026-07",
+      "customer_id": "CUS-1001",
+      "billing_period": "2026-07",
+      "quantity": 2979,
+      "unit_price": "0.0120",
+      "amount": "30.75",
+      "pricing_version_id": "PRICE-STARTER-V2"
+    },
+    {
+      "invoice_line_id": "LINE-0002",
+      "invoice_id": "INV-1002-2026-07",
+      "customer_id": "CUS-1002",
+      "billing_period": "2026-07",
+      "quantity": 2328,
+      "unit_price": "0.0080",
+      "amount": "18.62",
+      "pricing_version_id": "PRICE-GROWTH-V1"
+    },
+    {
+      "invoice_line_id": "LINE-0003",
+      "invoice_id": "INV-1003-2026-07",
+      "customer_id": "CUS-1003",
+      "billing_period": "2026-07",
+      "quantity": 3736,
+      "unit_price": "0.0050",
+      "amount": "18.68",
+      "pricing_version_id": "PRICE-PRO-V1"
+    },
+    {
+      "invoice_line_id": "LINE-0004",
+      "invoice_id": "INV-1004-2026-07",
+      "customer_id": "CUS-1004",
+      "billing_period": "2026-07",
+      "quantity": 3397,
+      "unit_price": "0.0120",
+      "amount": "40.76",
+      "pricing_version_id": "PRICE-STARTER-V2"
+    }
+  ],
+  "known_anomalies": [
+    {
+      "anomaly_id": "ANOM-001",
+      "type": "duplicate_event",
+      "customer_id": "CUS-1001",
+      "event_id": "EVT-1001-003",
+      "expected_detection": true,
+      "description": "The same event ID appears more than once in the observed event stream."
+    },
+    {
+      "anomaly_id": "ANOM-002",
+      "type": "missing_event",
+      "customer_id": "CUS-1001",
+      "event_id": "EVT-1001-009",
+      "expected_detection": true,
+      "description": "An event present in the source ledger is absent from the observed stream."
+    },
+    {
+      "anomaly_id": "ANOM-003",
+      "type": "invoice_undercharge",
+      "customer_id": "CUS-1001",
+      "invoice_line_id": "LINE-0001",
+      "expected_detection": true,
+      "description": "Recorded invoice amount is $5.00 lower than the baseline expected amount."
+    }
+  ]
+}
