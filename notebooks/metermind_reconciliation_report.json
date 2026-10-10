@@ -1,0 +1,116 @@
+{
+  "case_id": "RECON-DEMO-001",
+  "status": "review_required",
+  "finding_count": 4,
+  "findings": {
+    "duplicate_events": [
+      {
+        "finding_type": "duplicate_event",
+        "severity": "high",
+        "event_id": "EVT-1001-003",
+        "occurrences": 2,
+        "duplicate_copies": 1,
+        "customer_ids": [
+          "CUS-1001"
+        ],
+        "evidence": {
+          "event_signatures": [
+            [
+              "EVT-1001-003",
+              "CUS-1001",
+              "2026-07-03T09:00:00+00:00",
+              "62",
+              "api_request"
+            ],
+            [
+              "EVT-1001-003",
+              "CUS-1001",
+              "2026-07-03T09:00:00+00:00",
+              "62",
+              "api_request"
+            ]
+          ]
+        },
+        "requires_review": true
+      }
+    ],
+    "missing_events": [
+      {
+        "finding_type": "missing_event",
+        "severity": "high",
+        "event_id": "EVT-1001-009",
+        "expected_occurrences": 1,
+        "observed_occurrences": 0,
+        "missing_copies": 1,
+        "customer_id": "CUS-1001",
+        "evidence": {
+          "authoritative_event": {
+            "event_id": "EVT-1001-009",
+            "customer_id": "CUS-1001",
+            "occurred_at": "2026-07-09T03:00:00+00:00",
+            "quantity": 427,
+            "metric": "api_request",
+            "status": "accepted"
+          }
+        },
+        "requires_review": true
+      }
+    ],
+    "invoice_mismatches": [
+      {
+        "finding_type": "invoice_amount_mismatch",
+        "severity": "high",
+        "line_key": [
+          "id",
+          "LINE-0001"
+        ],
+        "customer_id": "CUS-1001",
+        "expected_amount": "35.75",
+        "actual_amount": "30.75",
+        "difference": "-5.00",
+        "direction": "undercharge",
+        "evidence": {
+          "expected_line": {
+            "invoice_line_id": "LINE-0001",
+            "invoice_id": "INV-1001-2026-07",
+            "customer_id": "CUS-1001",
+            "billing_period": "2026-07",
+            "quantity": 2979,
+            "unit_price": "0.0120",
+            "amount": "35.75",
+            "pricing_version_id": "PRICE-STARTER-V2"
+          },
+          "actual_line": {
+            "invoice_line_id": "LINE-0001",
+            "invoice_id": "INV-1001-2026-07",
+            "customer_id": "CUS-1001",
+            "billing_period": "2026-07",
+            "quantity": 2979,
+            "unit_price": "0.0120",
+            "amount": "30.75",
+            "pricing_version_id": "PRICE-STARTER-V2"
+          }
+        },
+        "requires_review": true
+      }
+    ],
+    "calculation_mismatches": [
+      {
+        "finding_type": "calculation_mismatch",
+        "severity": "high",
+        "invoice_line_id": "LINE-0001",
+        "quantity": "2979",
+        "unit_price": "0.0120",
+        "recorded_amount": "30.75",
+        "calculated_amount": "35.75",
+        "difference": "-5.00",
+        "requires_review": true
+      }
+    ]
+  },
+  "limitations": [
+    "Missing events are provable here only because the fixture contains an authoritative source ledger.",
+    "Baseline invoice comparison detects differences but does not yet independently reconstruct every charge from pricing rules.",
+    "No invoice or payment system is modified by this notebook."
+  ]
+}
