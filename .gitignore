@@ -1,0 +1,14 @@
+
+# Environment variables and secrets
+backend/.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Environment variables and secrets
+backend/.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
