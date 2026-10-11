@@ -11,6 +11,11 @@ from app.graph.state import MeterMindState
 from app.schemas.agent_result import AgentResult, AgentStatus
 from app.services.agent_result_adapter import build_agent_result
 from app.tools.billing_tools import get_report
+from app.schemas.agent_result import (
+    AgentResult,
+    AgentStatus,
+    EvidenceReference,
+)
 
 
 SPECIALISTS = {
@@ -77,6 +82,62 @@ def failed_result(
         limitations=["No successful investigation result was produced."],
     )
 
+def collect_pricing_evidence(report: dict[str, Any]) -> list[EvidenceReference]:
+    """Collect reconstructed invoice lines exposed by deterministic findings."""
+    findings = report.get("findings", {})
+    evidence_by_id: dict[str, EvidenceReference] = {}
+
+    for group_name in ("invoice_mismatches", "calculation_mismatches"):
+        group = findings.get(group_name, [])
+
+        if not isinstance(group, list):
+            continue
+
+        for finding in group:
+            if not isinstance(finding, dict):
+                continue
+
+            evidence = finding.get("evidence", {})
+            if not isinstance(evidence, dict):
+                continue
+
+            expected_line = evidence.get("expected_line")
+            if not isinstance(expected_line, dict):
+                continue
+
+            customer_id = expected_line.get("customer_id")
+            billing_period = expected_line.get("billing_period")
+            pricing_version_id = expected_line.get("pricing_version_id")
+
+            if not all((customer_id, billing_period, pricing_version_id)):
+                continue
+
+            evidence_id = (
+                f"pricing-reconstruction:{customer_id}:"
+                f"{billing_period}:{pricing_version_id}"
+            )
+
+            description = (
+                f"Reconstructed invoice line for customer {customer_id}; "
+                f"period={billing_period}; "
+                f"pricing_version={pricing_version_id}; "
+                f"quantity={expected_line.get('quantity')}; "
+                f"unit_price={expected_line.get('unit_price')}; "
+                f"expected_amount={expected_line.get('amount')}; "
+                f"currency={expected_line.get('currency')}; "
+                f"calculation_method="
+                f"{expected_line.get('calculation_method')}; "
+                f"source_events={expected_line.get('source_event_ids', [])}"
+            )
+
+            evidence_by_id[evidence_id] = EvidenceReference(
+                evidence_id=evidence_id,
+                source="deterministic_pricing_reconstruction",
+                description=description,
+            )
+
+    return list(evidence_by_id.values())
+
 def result_for_agent(
     agent_name: str,
     report: dict[str, Any],
@@ -91,14 +152,16 @@ def result_for_agent(
     if agent_name == "pricing_agent":
         findings = report.get("findings", {})
         pricing_errors = findings.get("pricing_errors", [])
+        pricing_evidence = collect_pricing_evidence(report)
 
         if pricing_errors:
             return result.model_copy(update={
                 "status": AgentStatus.NEEDS_MORE_EVIDENCE,
                 "summary": (
-                    "Pricing reconstruction could not be completed "
-                    "because one or more pricing errors were detected."
+                    "Pricing reconstruction could not be completed because "
+                    "one or more pricing errors were detected."
                 ),
+                "evidence_reviewed": pricing_evidence,
                 "limitations": [
                     *result.limitations,
                     *[str(error) for error in pricing_errors],
@@ -112,18 +175,22 @@ def result_for_agent(
         return result.model_copy(update={
             "status": AgentStatus.COMPLETED,
             "summary": (
-                "Effective-dated pricing reconstruction completed "
-                "using authoritative source events, customer plans, "
-                "and applicable pricing versions."
+                "Effective-dated pricing reconstruction completed. "
+                "Deterministic invoice-line evidence exposed by discrepancy "
+                "findings was attached for review."
             ),
+            "evidence_reviewed": pricing_evidence,
             "limitations": [
                 *result.limitations,
                 "Pricing reconstruction uses the currently implemented "
                 "flat per-unit pricing model.",
+                "Evidence is limited to reconstructed lines exposed by "
+                "the report's discrepancy findings; this is not a complete "
+                "inventory of every reconstructed invoice line.",
             ],
             "recommended_next_steps": [
-                "Review reconstructed charges alongside invoice "
-                "discrepancies and event anomalies."
+                "Review reconstructed charges alongside invoice discrepancies "
+                "and event anomalies."
             ],
         })
 

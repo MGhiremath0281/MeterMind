@@ -1,0 +1,57 @@
+from app.graph.workflow import collect_pricing_evidence
+
+def make_report():
+    expected_line = {
+        "invoice_id": "INV-001",
+        "customer_id": "CUS-001",
+        "billing_period": "2026-07",
+        "pricing_version_id": "PRICE-V2",
+        "quantity": "100",
+        "unit_price": "0.0120",
+        "amount": "1.20",
+        "currency": "USD",
+        "calculation_method": "authoritative_usage_x_effective_unit_price",
+        "source_event_ids": ["EVT-001", "EVT-002"],
+    }
+
+    return {
+        "findings": {
+            "invoice_mismatches": [
+                {"evidence": {"expected_line": expected_line}}
+            ],
+            "calculation_mismatches": [
+                {"evidence": {"expected_line": expected_line}}
+            ],
+            "pricing_errors": [],
+        }
+    }
+
+
+def test_pricing_evidence_contains_reconstructed_amount():
+    evidence = collect_pricing_evidence(make_report())
+
+    assert len(evidence) == 1
+    assert evidence[0].evidence_id == (
+        "pricing-reconstruction:CUS-001:2026-07:PRICE-V2"
+    )
+    assert "expected_amount=1.20" in evidence[0].description
+    assert "EVT-001" in evidence[0].description
+
+
+def test_duplicate_findings_produce_one_evidence_reference():
+    evidence = collect_pricing_evidence(make_report())
+
+    assert len(evidence) == 1
+
+
+def test_missing_expected_line_is_ignored():
+    report = {
+        "findings": {
+            "invoice_mismatches": [
+                {"evidence": {"actual_line": {"amount": "1.20"}}}
+            ],
+            "calculation_mismatches": [],
+        }
+    }
+
+    assert collect_pricing_evidence(report) == []

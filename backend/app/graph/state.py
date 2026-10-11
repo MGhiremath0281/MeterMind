@@ -10,6 +10,7 @@ class AgentExecution(TypedDict, total=False):
     error: str
 
 
+
 class MeterMindState(TypedDict, total=False):
     case_id: str
     agent_outputs: dict[str, AgentExecution]
@@ -18,3 +19,4 @@ class MeterMindState(TypedDict, total=False):
     errors: list[str]
     retry_count: int
     supervisor_decision: str
+    supervisor_reason: str
