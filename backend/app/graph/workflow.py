@@ -8,6 +8,40 @@ from app.agents.invoice_agent import invoice_agent
 from app.agents.audit_agent import audit_agent
 
 from app.graph.state import MeterMindState
+from app.schemas.agent_result import AgentResult, AgentStatus
+from app.services.agent_result_adapter import build_agent_result
+from app.tools.billing_tools import get_report
+
+
+SPECIALISTS = {
+    "event_agent": event_agent,
+    "pricing_agent": pricing_agent,
+    "invoice_agent": invoice_agent,
+}
+
+
+TASKS = {
+    "event_agent": """
+Investigate duplicate and missing usage events.
+
+Use the event inspection tool. Identify exact event IDs and explain
+what the deterministic evidence establishes. Do not invent findings.
+""",
+    "pricing_agent": """
+Investigate customer plans and pricing versions.
+
+Use the pricing inspection tool. Examine effective dates and explain
+what additional evidence is needed to verify actual billed prices.
+Do not declare a pricing mismatch without sufficient evidence.
+""",
+    "invoice_agent": """
+Investigate expected versus recorded invoice amounts.
+
+Use invoice inspection and arithmetic tools where appropriate.
+Treat deterministic financial calculations as authoritative.
+Do not infer root cause from an amount mismatch alone.
+""",
+}
 
 
 def extract_response(result: dict[str, Any]) -> str:
@@ -25,12 +59,58 @@ def extract_response(result: dict[str, Any]) -> str:
 
 def invoke_agent(agent, task: str) -> str:
     result = agent.invoke({
-        "messages": [
-            {"role": "user", "content": task}
-        ]
+        "messages": [{"role": "user", "content": task}]
     })
-
     return extract_response(result)
+
+
+def failed_result(
+    agent_name: str,
+    case_id: str,
+    error: str,
+) -> AgentResult:
+    return AgentResult(
+        agent_name=agent_name,
+        case_id=case_id,
+        status=AgentStatus.FAILED,
+        summary=f"Agent execution failed: {error}",
+        limitations=["No successful investigation result was produced."],
+    )
+
+
+def result_for_agent(
+    agent_name: str,
+    report: dict[str, Any],
+    case_id: str,
+) -> AgentResult:
+    result = build_agent_result(
+        report=report,
+        agent_name=agent_name,
+        case_id=case_id,
+    )
+
+    # Pricing data is currently available, but deterministic,
+    # effective-dated pricing reconstruction is not implemented yet.
+    if agent_name == "pricing_agent":
+        return result.model_copy(update={
+            "status": AgentStatus.NEEDS_MORE_EVIDENCE,
+            "summary": (
+                "Pricing metadata is available, but the current "
+                "reconciliation engine does not independently reconstruct "
+                "charges from effective-dated pricing rules."
+            ),
+            "limitations": [
+                *result.limitations,
+                "Effective-dated pricing reconstruction is not implemented.",
+            ],
+            "recommended_next_steps": [
+                "Reconstruct expected charges from usage, customer plan, "
+                "and the pricing version effective at the usage timestamp.",
+                "Compare reconstructed charges with the invoice lines.",
+            ],
+        })
+
+    return result
 
 
 def run_specialist(
@@ -39,28 +119,42 @@ def run_specialist(
     agent_name: str,
     task: str,
 ) -> dict[str, Any]:
+    case_id = state.get("case_id", "RECON-DEMO-001")
     outputs = dict(state.get("agent_outputs", {}))
+    results = dict(state.get("agent_results", {}))
     errors = list(state.get("errors", []))
 
     try:
-        output = invoke_agent(agent, task)
+        commentary = invoke_agent(agent, task)
 
+        # Findings come from deterministic evidence, not model prose.
+        report = get_report()
+        structured = result_for_agent(agent_name, report, case_id)
+
+        results[agent_name] = structured
         outputs[agent_name] = {
             "status": "completed",
-            "output": output,
+            "output": commentary,
+            "result": structured.model_dump(mode="json"),
         }
 
     except Exception as exc:
-        errors.append(f"{agent_name}: {type(exc).__name__}: {exc}")
+        error = f"{type(exc).__name__}: {exc}"
+        errors.append(f"{agent_name}: {error}")
+
+        structured = failed_result(agent_name, case_id, error)
+        results[agent_name] = structured
 
         outputs[agent_name] = {
             "status": "failed",
             "output": "",
-            "error": f"{type(exc).__name__}: {exc}",
+            "error": error,
+            "result": structured.model_dump(mode="json"),
         }
 
     return {
         "agent_outputs": outputs,
+        "agent_results": results,
         "errors": errors,
     }
 
@@ -70,12 +164,7 @@ def event_node(state: MeterMindState) -> dict[str, Any]:
         state,
         event_agent,
         "event_agent",
-        """
-Investigate duplicate and missing usage events.
-
-Use the event inspection tool. Report the exact event IDs and evidence
-when available. Clearly distinguish confirmed issues from hypotheses.
-""",
+        TASKS["event_agent"],
     )
 
 
@@ -84,12 +173,7 @@ def pricing_node(state: MeterMindState) -> dict[str, Any]:
         state,
         pricing_agent,
         "pricing_agent",
-        """
-Investigate customer plans and pricing versions.
-
-Use the pricing inspection tool. Examine effective dates and identify
-what evidence is missing before declaring a pricing error.
-""",
+        TASKS["pricing_agent"],
     )
 
 
@@ -98,90 +182,114 @@ def invoice_node(state: MeterMindState) -> dict[str, Any]:
         state,
         invoice_agent,
         "invoice_agent",
-        """
-Investigate expected versus recorded invoice amounts.
-
-Use the invoice inspection and arithmetic tools where appropriate.
-Use deterministic values as the financial source of truth.
-""",
+        TASKS["invoice_agent"],
     )
 
 
 def audit_node(state: MeterMindState) -> dict[str, Any]:
+    case_id = state.get("case_id", "RECON-DEMO-001")
     outputs = dict(state.get("agent_outputs", {}))
+    results = dict(state.get("agent_results", {}))
     errors = list(state.get("errors", []))
 
-    # Do not treat the case as audited if a specialist failed.
+    specialist_names = (
+        "event_agent",
+        "pricing_agent",
+        "invoice_agent",
+    )
+
     failed_agents = [
         name
-        for name in (
-            "event_agent",
-            "pricing_agent",
-            "invoice_agent",
-        )
+        for name in specialist_names
         if outputs.get(name, {}).get("status") != "completed"
     ]
 
     if failed_agents:
+        message = (
+            "Audit blocked because specialist execution failed: "
+            + ", ".join(failed_agents)
+        )
+
+        audit_result = AgentResult(
+            agent_name="audit_agent",
+            case_id=case_id,
+            status=AgentStatus.NEEDS_MORE_EVIDENCE,
+            summary=message,
+            limitations=["One or more specialist investigations failed."],
+            recommended_next_steps=[
+                "Resolve specialist failures and rerun the investigation."
+            ],
+        )
+
         outputs["audit_agent"] = {
             "status": "blocked",
-            "output": (
-                "Audit blocked because specialist agents failed: "
-                + ", ".join(failed_agents)
-            ),
+            "output": message,
+            "result": audit_result.model_dump(mode="json"),
         }
+        results["audit_agent"] = audit_result
 
         return {
             "agent_outputs": outputs,
+            "agent_results": results,
+            "errors": errors,
             "audit_status": "unresolved",
         }
 
     try:
-        # The audit receives the other agents' findings explicitly.
+        report = get_report()
+
         audit_task = (
-            "Independently audit this MeterMind case.\n\n"
-            f"Case ID: {state.get('case_id', 'RECON-DEMO-001')}\n\n"
-            "Specialist outputs:\n"
+            "Independently audit this MeterMind case.\n"
+            f"Case ID: {case_id}\n\n"
+            "Specialist commentary:\n"
             + str({
-                name: outputs[name]
-                for name in (
-                    "event_agent",
-                    "pricing_agent",
-                    "invoice_agent",
-                )
+                name: outputs[name].get("output", "")
+                for name in specialist_names
             })
             + "\n\nRetrieve the deterministic evidence report. "
-            "Verify relevant arithmetic. Identify unsupported claims, "
-            "contradictions, and unresolved evidence. "
-            "Return one final decision: verified, disputed, or unresolved."
+            "Check the evidence, calculations, contradictions, and "
+            "limitations. Do not approve financial corrections. "
+            "Explain what remains unresolved."
         )
 
-        audit_output = invoke_agent(audit_agent, audit_task)
+        commentary = invoke_agent(audit_agent, audit_task)
 
+        # The structured audit record reflects deterministic findings.
+        # The LLM commentary is retained separately for human review.
+        structured = build_agent_result(
+            report=report,
+            agent_name="audit_agent",
+            case_id=case_id,
+        )
+
+        results["audit_agent"] = structured
         outputs["audit_agent"] = {
             "status": "completed",
-            "output": audit_output,
+            "output": commentary,
+            "result": structured.model_dump(mode="json"),
         }
 
-        # Keep this conservative. The audit model's prose is not a
-        # machine-validated approval decision.
+        # Deliberately conservative: no automated approval yet.
         audit_status = "review_required"
 
     except Exception as exc:
-        errors.append(
-            f"audit_agent: {type(exc).__name__}: {exc}"
-        )
+        error = f"{type(exc).__name__}: {exc}"
+        errors.append(f"audit_agent: {error}")
+
+        structured = failed_result("audit_agent", case_id, error)
+        results["audit_agent"] = structured
 
         outputs["audit_agent"] = {
             "status": "failed",
             "output": "",
-            "error": f"{type(exc).__name__}: {exc}",
+            "error": error,
+            "result": structured.model_dump(mode="json"),
         }
-
         audit_status = "unresolved"
 
     return {
         "agent_outputs": outputs,
+        "agent_results": results,
         "errors": errors,
         "audit_status": audit_status,
     }
@@ -213,12 +321,21 @@ def run_investigation(
     result = meter_mind_workflow.invoke({
         "case_id": case_id,
         "agent_outputs": {},
+        "agent_results": {},
         "errors": [],
+        "retry_count": 0,
+        "supervisor_decision": "pending",
     })
 
     return {
         "case_id": result.get("case_id", case_id),
         "audit_status": result.get("audit_status", "unresolved"),
         "agent_outputs": result.get("agent_outputs", {}),
+        "agent_results": {
+            name: agent_result.model_dump(mode="json")
+            for name, agent_result in result.get(
+                "agent_results", {}
+            ).items()
+        },
         "errors": result.get("errors", []),
     }
