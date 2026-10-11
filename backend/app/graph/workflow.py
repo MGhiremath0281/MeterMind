@@ -6,7 +6,7 @@ from app.agents.event_agent import event_agent
 from app.agents.pricing_agent import pricing_agent
 from app.agents.invoice_agent import invoice_agent
 from app.agents.audit_agent import audit_agent
-
+from app.graph.supervisor import decide_next_step
 from app.graph.state import MeterMindState
 from app.schemas.agent_result import AgentResult, AgentStatus
 from app.services.agent_result_adapter import build_agent_result
@@ -185,6 +185,125 @@ def invoice_node(state: MeterMindState) -> dict[str, Any]:
         TASKS["invoice_agent"],
     )
 
+def supervisor_node(state: MeterMindState) -> dict[str, Any]:
+    decision = decide_next_step(
+        agent_results=state.get("agent_results", {}),
+        errors=state.get("errors", []),
+        retry_count=state.get("retry_count", 0),
+        max_retries=2,
+    )
+
+    return {
+        "supervisor_decision": decision["decision"],
+        "supervisor_reason": decision["reason"],
+    }
+
+
+def route_after_supervisor(state: MeterMindState) -> str:
+    decision = state.get("supervisor_decision", "unresolved")
+
+    if decision == "reinvestigate":
+        return "reinvestigate"
+
+    if decision == "review_required":
+        return "audit"
+
+    return "finish_unresolved"
+
+
+def reinvestigation_node(
+    state: MeterMindState,
+) -> dict[str, Any]:
+    """
+    Retry only agents whose structured results request more evidence.
+
+    Retries are bounded. This does not claim that repeating an unchanged
+    tool call creates new evidence.
+    """
+    retry_count = state.get("retry_count", 0)
+
+    if retry_count >= 2:
+        return {
+            "supervisor_decision": "unresolved",
+            "supervisor_reason": "Maximum re-investigation attempts reached.",
+        }
+
+    results = dict(state.get("agent_results", {}))
+    outputs = dict(state.get("agent_outputs", {}))
+    errors = list(state.get("errors", []))
+    case_id = state.get("case_id", "RECON-DEMO-001")
+
+    retry_count += 1
+
+    # Remove previous errors for agents being retried so a successful
+    # retry is not permanently treated as a failed execution.
+    retry_names = [
+        name
+        for name, result in results.items()
+        if result.status == AgentStatus.NEEDS_MORE_EVIDENCE
+    ]
+
+    for name in retry_names:
+        errors = [
+            error for error in errors
+            if not error.startswith(f"{name}:")
+        ]
+
+    retry_tasks = {
+        "pricing_agent": (
+            TASKS["pricing_agent"]
+            + "\nRe-investigation: explicitly identify which required "
+            "pricing evidence is unavailable. Do not claim that missing "
+            "deterministic reconstruction has been performed."
+        ),
+        "event_agent": TASKS["event_agent"],
+        "invoice_agent": TASKS["invoice_agent"],
+    }
+
+    for name in retry_names:
+        agent = SPECIALISTS.get(name)
+
+        if agent is None:
+            continue
+
+        retry_state: MeterMindState = {
+            **state,
+            "agent_outputs": outputs,
+            "agent_results": results,
+            "errors": errors,
+        }
+
+        updated = run_specialist(
+            retry_state,
+            agent,
+            name,
+            retry_tasks[name],
+        )
+
+        outputs = updated["agent_outputs"]
+        results = updated["agent_results"]
+        errors = updated["errors"]
+
+    return {
+        "agent_outputs": outputs,
+        "agent_results": results,
+        "errors": errors,
+        "retry_count": retry_count,
+    }
+
+
+def finish_unresolved_node(
+    state: MeterMindState,
+) -> dict[str, Any]:
+    return {
+        "audit_status": "unresolved",
+        "supervisor_decision": "unresolved",
+        "supervisor_reason": state.get(
+            "supervisor_reason",
+            "The investigation could not establish sufficient evidence.",
+        ),
+    }
+
 
 def audit_node(state: MeterMindState) -> dict[str, Any]:
     case_id = state.get("case_id", "RECON-DEMO-001")
@@ -303,17 +422,32 @@ def build_workflow():
     graph.add_node("invoice_agent", invoice_node)
     graph.add_node("audit_agent", audit_node)
 
+    graph.add_node("supervisor", supervisor_node)
+    graph.add_node("reinvestigate", reinvestigation_node)
+    graph.add_node("finish_unresolved", finish_unresolved_node)
+
     graph.add_edge(START, "event_agent")
     graph.add_edge("event_agent", "pricing_agent")
     graph.add_edge("pricing_agent", "invoice_agent")
-    graph.add_edge("invoice_agent", "audit_agent")
+    graph.add_edge("invoice_agent", "supervisor")
+
+    graph.add_conditional_edges(
+        "supervisor",
+        route_after_supervisor,
+        {
+            "reinvestigate": "reinvestigate",
+            "audit": "audit_agent",
+            "finish_unresolved": "finish_unresolved",
+        },
+    )
+
+    graph.add_edge("reinvestigate", "supervisor")
     graph.add_edge("audit_agent", END)
+    graph.add_edge("finish_unresolved", END)
 
     return graph.compile()
 
-
 meter_mind_workflow = build_workflow()
-
 
 def run_investigation(
     case_id: str = "RECON-DEMO-001",
@@ -325,14 +459,24 @@ def run_investigation(
         "errors": [],
         "retry_count": 0,
         "supervisor_decision": "pending",
+        "supervisor_reason": "",
     })
 
     return {
         "case_id": result.get("case_id", case_id),
         "audit_status": result.get("audit_status", "unresolved"),
+        "supervisor_decision": result.get(
+            "supervisor_decision", "unresolved"
+        ),
+        "supervisor_reason": result.get("supervisor_reason", ""),
+        "retry_count": result.get("retry_count", 0),
         "agent_outputs": result.get("agent_outputs", {}),
         "agent_results": {
-            name: agent_result.model_dump(mode="json")
+            name: (
+                agent_result.model_dump(mode="json")
+                if isinstance(agent_result, AgentResult)
+                else agent_result
+            )
             for name, agent_result in result.get(
                 "agent_results", {}
             ).items()
