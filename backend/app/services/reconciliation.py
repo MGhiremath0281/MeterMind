@@ -1,4 +1,6 @@
 ﻿from typing import Any
+from datetime import date
+from collections import defaultdict
 from collections import Counter
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -44,16 +46,36 @@ def line_amount(line: dict[str, Any]) -> Decimal:
     return money(quantity * price)
 
 
+
 def line_key(line: dict[str, Any]) -> tuple:
-    line_id = first_present(line, "invoice_line_id", "line_id")
+    customer_id = first_present(line, "customer_id")
+    billing_period = first_present(
+        line, "billing_period", "period"
+    )
+    pricing_version_id = first_present(
+        line, "pricing_version_id"
+    )
+
+    if (
+        customer_id is not None
+        and billing_period is not None
+        and pricing_version_id is not None
+    ):
+        return (
+            "billing",
+            str(customer_id),
+            str(billing_period),
+            str(pricing_version_id),
+        )
+
+    line_id = first_present(
+        line, "invoice_line_id", "line_id"
+    )
     if line_id is not None:
         return ("id", str(line_id))
-    return (
-        "composite",
-        str(first_present(line, "invoice_id", default="")),
-        str(first_present(line, "customer_id", default="")),
-        str(first_present(line, "billing_period", "period", default="")),
-        str(first_present(line, "pricing_version_id", default="")),
+
+    raise ValueError(
+        f"Cannot establish invoice line identity: {line}"
     )
 
 
@@ -179,28 +201,288 @@ def verify_calculations(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
             })
     return findings
 
+def select_pricing_version(
+    plan_id: str,
+    occurred_at: str,
+    pricing_versions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """
+    Select exactly one pricing version effective on the
+    usage event's calendar date.
 
-def run_reconciliation(fixture: dict[str, Any]) -> dict[str, Any]:
-    source_events = records(fixture, "clean_events", "source_events", "original_events")
-    observed_events = records(fixture, "observed_events", "processed_events", "ingested_events")
-    expected_lines = records(fixture, "baseline_invoice_lines", "correct_invoice_lines", "expected_invoice_lines")
-    actual_lines = records(fixture, "observed_invoice_lines", "actual_invoice_lines", "invoice_lines")
+    effective_from and effective_to are treated as inclusive
+    calendar dates. An absent effective_to means no end date.
+    """
+    event_date = date.fromisoformat(occurred_at[:10])
+
+    matches = []
+
+    for version in pricing_versions:
+        if str(version.get("plan_id")) != str(plan_id):
+            continue
+
+        effective_from = date.fromisoformat(
+            str(version["effective_from"])
+        )
+
+        effective_to_value = version.get("effective_to")
+        effective_to = (
+            date.fromisoformat(str(effective_to_value))
+            if effective_to_value
+            else None
+        )
+
+        if event_date < effective_from:
+            continue
+
+        if effective_to is not None and event_date > effective_to:
+            continue
+
+        matches.append(version)
+
+    if not matches:
+        raise ValueError(
+            f"No effective pricing version for plan={plan_id}, "
+            f"date={event_date}"
+        )
+
+    if len(matches) > 1:
+        version_ids = [
+            str(item.get("pricing_version_id"))
+            for item in matches
+        ]
+        raise ValueError(
+            f"Ambiguous pricing for plan={plan_id}, "
+            f"date={event_date}: {version_ids}"
+        )
+
+    return matches[0]
+
+
+def reconstruct_expected_invoice_lines(
+    fixture: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Independently reconstruct expected invoice lines from
+    authoritative usage events, customer plans, and pricing.
+
+    Returns:
+        (expected_lines, pricing_errors)
+
+    This implementation assumes:
+    - Pricing is per usage unit.
+    - The fixture's pricing applies to its usage metric.
+    - Billing is grouped by customer, month, and pricing version.
+    - Each reconstructed line is rounded to cents using
+      ROUND_HALF_UP.
+    """
+    source_events = records(
+        fixture, "clean_events", "source_events", "original_events"
+    )
+    customers = records(fixture, "customers")
+    pricing_versions = records(fixture, "pricing_versions")
+
+    customers_by_id = {
+        str(customer["customer_id"]): customer
+        for customer in customers
+    }
+
+    # group_key -> accumulated quantity and pricing metadata
+    groups: dict[tuple, dict[str, Any]] = {}
+    pricing_errors: list[dict[str, Any]] = []
+
+    for event in source_events:
+        event_id = get_event_id(event)
+        customer_id = str(
+            first_present(event, "customer_id", default="")
+        )
+        occurred_at = first_present(event, "occurred_at")
+
+        try:
+            if not occurred_at:
+                raise ValueError("Usage event has no occurred_at")
+
+            customer = customers_by_id.get(customer_id)
+            if customer is None:
+                raise ValueError(
+                    f"Unknown customer_id={customer_id}"
+                )
+
+            plan_id = str(customer["plan_id"])
+
+            version = select_pricing_version(
+                plan_id=plan_id,
+                occurred_at=str(occurred_at),
+                pricing_versions=pricing_versions,
+            )
+
+            quantity = decimal_value(
+                first_present(event, "quantity")
+            )
+            if quantity < 0:
+                raise ValueError(
+                    f"Negative usage quantity for event {event_id}"
+                )
+
+            unit_price = decimal_value(version["unit_price"])
+            if unit_price < 0:
+                raise ValueError(
+                    f"Negative unit price in "
+                    f"{version['pricing_version_id']}"
+                )
+
+            period = str(occurred_at)[:7]
+            version_id = str(version["pricing_version_id"])
+
+            group_key = (
+                customer_id,
+                period,
+                version_id,
+            )
+
+            if group_key not in groups:
+                groups[group_key] = {
+                    "customer_id": customer_id,
+                    "plan_id": plan_id,
+                    "billing_period": period,
+                    "pricing_version_id": version_id,
+                    "unit_price": unit_price,
+                    "currency": str(
+                        customer.get("currency", "USD")
+                    ),
+                    "quantity": Decimal("0"),
+                    "event_ids": [],
+                }
+
+            group = groups[group_key]
+
+            # Defensive check: one pricing version must not
+            # resolve to inconsistent prices.
+            if group["unit_price"] != unit_price:
+                raise ValueError(
+                    f"Inconsistent unit price for {version_id}"
+                )
+
+            group["quantity"] += quantity
+            group["event_ids"].append(event_id)
+
+        except (KeyError, TypeError, ValueError) as exc:
+            pricing_errors.append({
+                "finding_type": "pricing_reconstruction_error",
+                "severity": "high",
+                "event_id": event_id,
+                "customer_id": customer_id,
+                "occurred_at": occurred_at,
+                "description": str(exc),
+                "requires_review": True,
+            })
+
+    expected_lines = []
+
+    # Only produce complete expected lines. A pricing error
+    # must never silently turn into a zero-dollar charge.
+    if pricing_errors:
+        return [], pricing_errors
+
+    for group_key in sorted(groups):
+        group = groups[group_key]
+
+        quantity = group["quantity"]
+        unit_price = group["unit_price"]
+        expected_amount = money(quantity * unit_price)
+
+        expected_lines.append({
+            "invoice_id": next(
+                (
+                    str(line["invoice_id"])
+                    for line in records(
+                        fixture,
+                        "baseline_invoice_lines",
+                        "correct_invoice_lines",
+                        "expected_invoice_lines",
+                    )
+                    if (
+                        str(line.get("customer_id"))
+                        == group["customer_id"]
+                        and str(
+                            first_present(
+                                line, "billing_period", "period", default=""
+                            )
+                        ) == group["billing_period"]
+                    )
+                ),
+                "",
+            ),
+            "customer_id": group["customer_id"],
+            "billing_period": group["billing_period"],
+            "plan_id": group["plan_id"],
+            "pricing_version_id": group["pricing_version_id"],
+            "quantity": str(quantity),
+            "unit_price": str(unit_price),
+            "amount": str(expected_amount),
+            "currency": group["currency"],
+            "source_event_ids": group["event_ids"],
+            "calculation_method": (
+                "authoritative_usage_x_effective_unit_price"
+            ),
+        })
+
+    return expected_lines, pricing_errors
+
+def run_reconciliation(
+    fixture: dict[str, Any],
+) -> dict[str, Any]:
+    source_events = records(
+        fixture, "clean_events", "source_events", "original_events"
+    )
+    observed_events = records(
+        fixture, "observed_events", "processed_events", "ingested_events"
+    )
+    actual_lines = records(
+        fixture, "observed_invoice_lines",
+        "actual_invoice_lines", "invoice_lines"
+    )
+
+    # Reconstruct expected charges instead of trusting the
+    # fixture's precomputed invoice baseline.
+    expected_lines, pricing_errors = (
+        reconstruct_expected_invoice_lines(fixture)
+    )
 
     findings = {
         "duplicate_events": detect_duplicates(observed_events),
-        "missing_events": detect_missing(source_events, observed_events),
-        "invoice_mismatches": compare_invoice_lines(expected_lines, actual_lines),
+        "missing_events": detect_missing(
+            source_events, observed_events
+        ),
+        "invoice_mismatches": (
+            compare_invoice_lines(expected_lines, actual_lines)
+            if not pricing_errors
+            else []
+        ),
         "calculation_mismatches": verify_calculations(actual_lines),
+        "pricing_errors": pricing_errors,
     }
+
     total = sum(len(items) for items in findings.values())
+
     return {
-        "case_id": "RECON-DEMO-001",
-        "status": "review_required" if total else "no_discrepancy_detected",
+        "case_id": fixture.get(
+            "case_id", "RECON-DEMO-001"
+        ),
+        "status": (
+            "review_required"
+            if total
+            else "no_discrepancy_detected"
+        ),
         "finding_count": total,
         "findings": findings,
         "limitations": [
-            "Missing events are proven against the authoritative source ledger in this synthetic fixture.",
-            "Expected invoice lines currently come from the fixture baseline; effective-dated pricing reconstruction is a later step.",
+            "Expected charges are reconstructed from the authoritative "
+            "source ledger and effective-dated pricing.",
+            "Duplicate and missing observed events are assessed separately "
+            "from the authoritative usage used for expected billing.",
+            "Invoice amount mismatches and arithmetic mismatches can "
+            "describe the same underlying financial incident.",
             "This API is read-only and does not modify invoices or payments.",
         ],
     }
