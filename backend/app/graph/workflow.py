@@ -77,7 +77,6 @@ def failed_result(
         limitations=["No successful investigation result was produced."],
     )
 
-
 def result_for_agent(
     agent_name: str,
     report: dict[str, Any],
@@ -89,29 +88,46 @@ def result_for_agent(
         case_id=case_id,
     )
 
-    # Pricing data is currently available, but deterministic,
-    # effective-dated pricing reconstruction is not implemented yet.
     if agent_name == "pricing_agent":
+        findings = report.get("findings", {})
+        pricing_errors = findings.get("pricing_errors", [])
+
+        if pricing_errors:
+            return result.model_copy(update={
+                "status": AgentStatus.NEEDS_MORE_EVIDENCE,
+                "summary": (
+                    "Pricing reconstruction could not be completed "
+                    "because one or more pricing errors were detected."
+                ),
+                "limitations": [
+                    *result.limitations,
+                    *[str(error) for error in pricing_errors],
+                ],
+                "recommended_next_steps": [
+                    "Resolve the pricing errors.",
+                    "Rerun effective-dated pricing reconstruction.",
+                ],
+            })
+
         return result.model_copy(update={
-            "status": AgentStatus.NEEDS_MORE_EVIDENCE,
+            "status": AgentStatus.COMPLETED,
             "summary": (
-                "Pricing metadata is available, but the current "
-                "reconciliation engine does not independently reconstruct "
-                "charges from effective-dated pricing rules."
+                "Effective-dated pricing reconstruction completed "
+                "using authoritative source events, customer plans, "
+                "and applicable pricing versions."
             ),
             "limitations": [
                 *result.limitations,
-                "Effective-dated pricing reconstruction is not implemented.",
+                "Pricing reconstruction uses the currently implemented "
+                "flat per-unit pricing model.",
             ],
             "recommended_next_steps": [
-                "Reconstruct expected charges from usage, customer plan, "
-                "and the pricing version effective at the usage timestamp.",
-                "Compare reconstructed charges with the invoice lines.",
+                "Review reconstructed charges alongside invoice "
+                "discrepancies and event anomalies."
             ],
         })
 
     return result
-
 
 def run_specialist(
     state: MeterMindState,
