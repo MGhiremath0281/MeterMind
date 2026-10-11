@@ -476,6 +476,7 @@ def run_reconciliation(
         ),
         "finding_count": total,
         "findings": findings,
+        "expected_invoice_lines": expected_lines,
         "limitations": [
             "Expected charges are reconstructed from the authoritative "
             "source ledger and effective-dated pricing.",
