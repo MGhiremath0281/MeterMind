@@ -9,14 +9,14 @@ class AgentExecution(TypedDict, total=False):
     output: str
     error: str
 
-
-
 class MeterMindState(TypedDict, total=False):
     case_id: str
     agent_outputs: dict[str, AgentExecution]
     agent_results: dict[str, AgentResult]
+    investigation_cases: list[dict[str, Any]]
     audit_status: str
     errors: list[str]
     retry_count: int
     supervisor_decision: str
     supervisor_reason: str
+

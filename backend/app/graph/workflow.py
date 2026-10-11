@@ -17,6 +17,10 @@ from app.schemas.agent_result import (
     EvidenceReference,
 )
 
+from app.services.investigation_grouper import (
+    group_investigation_findings,
+)
+
 
 SPECIALISTS = {
     "event_agent": event_agent,
@@ -82,10 +86,54 @@ def failed_result(
         limitations=["No successful investigation result was produced."],
     )
 
-def collect_pricing_evidence(report: dict[str, Any]) -> list[EvidenceReference]:
-    """Collect reconstructed invoice lines exposed by deterministic findings."""
-    findings = report.get("findings", {})
+def collect_pricing_evidence(
+    report: dict[str, Any],
+) -> list[EvidenceReference]:
+    """Collect all reconstructed pricing lines, deduplicating by identity."""
     evidence_by_id: dict[str, EvidenceReference] = {}
+
+    def add_line(expected_line: dict[str, Any]) -> None:
+        customer_id = expected_line.get("customer_id")
+        billing_period = expected_line.get("billing_period")
+        pricing_version_id = expected_line.get("pricing_version_id")
+
+        if not all((customer_id, billing_period, pricing_version_id)):
+            return
+
+        evidence_id = (
+            f"pricing-reconstruction:{customer_id}:"
+            f"{billing_period}:{pricing_version_id}"
+        )
+
+        description = (
+            f"Reconstructed invoice line for customer {customer_id}; "
+            f"period={billing_period}; "
+            f"pricing_version={pricing_version_id}; "
+            f"quantity={expected_line.get('quantity')}; "
+            f"unit_price={expected_line.get('unit_price')}; "
+            f"expected_amount={expected_line.get('amount')}; "
+            f"currency={expected_line.get('currency')}; "
+            f"calculation_method="
+            f"{expected_line.get('calculation_method')}; "
+            f"source_events={expected_line.get('source_event_ids', [])}"
+        )
+
+        evidence_by_id[evidence_id] = EvidenceReference(
+            evidence_id=evidence_id,
+            source="deterministic_pricing_reconstruction",
+            description=description,
+        )
+
+    # Preferred source: the complete reconstruction output.
+    expected_lines = report.get("expected_invoice_lines", [])
+
+    if isinstance(expected_lines, list):
+        for line in expected_lines:
+            if isinstance(line, dict):
+                add_line(line)
+
+    # Backward-compatible fallback for older report structures.
+    findings = report.get("findings", {})
 
     for group_name in ("invoice_mismatches", "calculation_mismatches"):
         group = findings.get(group_name, [])
@@ -102,39 +150,8 @@ def collect_pricing_evidence(report: dict[str, Any]) -> list[EvidenceReference]:
                 continue
 
             expected_line = evidence.get("expected_line")
-            if not isinstance(expected_line, dict):
-                continue
-
-            customer_id = expected_line.get("customer_id")
-            billing_period = expected_line.get("billing_period")
-            pricing_version_id = expected_line.get("pricing_version_id")
-
-            if not all((customer_id, billing_period, pricing_version_id)):
-                continue
-
-            evidence_id = (
-                f"pricing-reconstruction:{customer_id}:"
-                f"{billing_period}:{pricing_version_id}"
-            )
-
-            description = (
-                f"Reconstructed invoice line for customer {customer_id}; "
-                f"period={billing_period}; "
-                f"pricing_version={pricing_version_id}; "
-                f"quantity={expected_line.get('quantity')}; "
-                f"unit_price={expected_line.get('unit_price')}; "
-                f"expected_amount={expected_line.get('amount')}; "
-                f"currency={expected_line.get('currency')}; "
-                f"calculation_method="
-                f"{expected_line.get('calculation_method')}; "
-                f"source_events={expected_line.get('source_event_ids', [])}"
-            )
-
-            evidence_by_id[evidence_id] = EvidenceReference(
-                evidence_id=evidence_id,
-                source="deterministic_pricing_reconstruction",
-                description=description,
-            )
+            if isinstance(expected_line, dict):
+                add_line(expected_line)
 
     return list(evidence_by_id.values())
 
@@ -155,44 +172,47 @@ def result_for_agent(
         pricing_evidence = collect_pricing_evidence(report)
 
         if pricing_errors:
-            return result.model_copy(update={
-                "status": AgentStatus.NEEDS_MORE_EVIDENCE,
+            return result.model_copy(
+                update={
+                    "status": AgentStatus.NEEDS_MORE_EVIDENCE,
+                    "summary": (
+                        "Effective-dated pricing reconstruction could not "
+                        "be fully completed because pricing errors were found."
+                    ),
+                    "evidence_reviewed": pricing_evidence,
+                    "limitations": [
+                        *result.limitations,
+                        *[str(error) for error in pricing_errors],
+                    ],
+                    "recommended_next_steps": [
+                        "Resolve the pricing errors.",
+                        "Rerun effective-dated pricing reconstruction.",
+                    ],
+                }
+            )
+
+        return result.model_copy(
+            update={
+                "status": AgentStatus.COMPLETED,
                 "summary": (
-                    "Pricing reconstruction could not be completed because "
-                    "one or more pricing errors were detected."
+                    "Effective-dated pricing reconstruction completed. "
+                    "Evidence from all reconstructed invoice lines was "
+                    "attached for review."
                 ),
                 "evidence_reviewed": pricing_evidence,
                 "limitations": [
                     *result.limitations,
-                    *[str(error) for error in pricing_errors],
+                    "Pricing reconstruction uses the currently "
+                    "implemented flat per-unit pricing model.",
+                    "Pricing evidence includes all reconstructed invoice "
+                    "lines available in the reconciliation report.",
                 ],
                 "recommended_next_steps": [
-                    "Resolve the pricing errors.",
-                    "Rerun effective-dated pricing reconstruction.",
+                    "Review reconstructed charges alongside invoice "
+                    "discrepancies and event anomalies."
                 ],
-            })
-
-        return result.model_copy(update={
-            "status": AgentStatus.COMPLETED,
-            "summary": (
-                "Effective-dated pricing reconstruction completed. "
-                "Deterministic invoice-line evidence exposed by discrepancy "
-                "findings was attached for review."
-            ),
-            "evidence_reviewed": pricing_evidence,
-            "limitations": [
-                *result.limitations,
-                "Pricing reconstruction uses the currently implemented "
-                "flat per-unit pricing model.",
-                "Evidence is limited to reconstructed lines exposed by "
-                "the report's discrepancy findings; this is not a complete "
-                "inventory of every reconstructed invoice line.",
-            ],
-            "recommended_next_steps": [
-                "Review reconstructed charges alongside invoice discrepancies "
-                "and event anomalies."
-            ],
-        })
+            }
+        )
 
     return result
 
@@ -268,19 +288,45 @@ def invoice_node(state: MeterMindState) -> dict[str, Any]:
         TASKS["invoice_agent"],
     )
 
+
+def collect_investigation_cases(
+    agent_results: dict[str, AgentResult],
+) -> list[dict[str, Any]]:
+    """Group specialist findings while preserving their source records."""
+    findings = []
+
+    for agent_name in (
+        "event_agent",
+        "pricing_agent",
+        "invoice_agent",
+    ):
+        result = agent_results.get(agent_name)
+
+        if result is None:
+            continue
+
+        findings.extend(result.findings)
+
+    return group_investigation_findings(findings)
+
+
 def supervisor_node(state: MeterMindState) -> dict[str, Any]:
+    agent_results = state.get("agent_results", {})
+
+    investigation_cases = collect_investigation_cases(agent_results)
+
     decision = decide_next_step(
-        agent_results=state.get("agent_results", {}),
+        agent_results=agent_results,
         errors=state.get("errors", []),
         retry_count=state.get("retry_count", 0),
         max_retries=2,
     )
 
     return {
+        "investigation_cases": investigation_cases,
         "supervisor_decision": decision["decision"],
         "supervisor_reason": decision["reason"],
     }
-
 
 def route_after_supervisor(state: MeterMindState) -> str:
     decision = state.get("supervisor_decision", "unresolved")
@@ -554,6 +600,7 @@ def run_investigation(
         "supervisor_reason": result.get("supervisor_reason", ""),
         "retry_count": result.get("retry_count", 0),
         "agent_outputs": result.get("agent_outputs", {}),
+        "investigation_cases": result.get("investigation_cases", []),
         "agent_results": {
             name: (
                 agent_result.model_dump(mode="json")

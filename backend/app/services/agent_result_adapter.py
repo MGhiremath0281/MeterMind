@@ -100,8 +100,6 @@ def _evidence_for(
             f"{_describe_finding(group, finding)}"
         )
     else:
-        # Some deterministic checks encode their evidence directly in
-        # the finding fields rather than under an 'evidence' key.
         description = (
             f"Deterministic report record from group {group}: "
             f"{_describe_finding(group, finding)}"
@@ -140,28 +138,39 @@ def _affected_invoice_line_ids(
     return [str(line_id)] if line_id is not None else []
 
 
+
 def _to_agent_finding(
     group: str,
     index: int,
     finding: dict[str, Any],
+    customer_by_invoice_line: dict[str, str] | None = None,
 ) -> AgentFinding:
     evidence = _evidence_for(group, index, finding)
 
+    # First, use the customer ID directly provided by the finding.
     customer_id = finding.get("customer_id")
+
+    # Fall back to customer_ids if customer_id is missing.
     if customer_id is None:
         customer_ids = finding.get("customer_ids", [])
         if customer_ids:
             customer_id = customer_ids[0]
 
+    # Resolve missing customer attribution using the invoice-line mapping.
+    if customer_id is None:
+        line_ids = _affected_invoice_line_ids(group, finding)
+
+        if customer_by_invoice_line and len(line_ids) == 1:
+            customer_id = customer_by_invoice_line.get(line_ids[0])
+
     return AgentFinding(
         finding_id=f"{group}:{index}",
         category=GROUP_CATEGORIES[group],
-        title=finding.get("finding_type", GROUP_CATEGORIES[group]).replace(
-            "_", " "
-        ).title(),
+        title=finding.get(
+            "finding_type",
+            GROUP_CATEGORIES[group],
+        ).replace("_", " ").title(),
         description=_describe_finding(group, finding),
-        # The deterministic engine establishes the discrepancy detected
-        # by its rules. It does not automatically establish root cause.
         status=FindingStatus.CONFIRMED,
         severity=_severity(finding.get("severity")),
         evidence=evidence,
@@ -170,7 +179,8 @@ def _to_agent_finding(
         ),
         affected_event_ids=_affected_event_ids(finding),
         affected_invoice_line_ids=_affected_invoice_line_ids(
-            group, finding
+            group,
+            finding,
         ),
         limitations=[
             "This finding confirms the deterministic rule's detected "
@@ -201,6 +211,42 @@ def build_agent_result(
     if not isinstance(groups, dict):
         raise ValueError("Reconciliation report has no findings dictionary.")
 
+    customer_by_invoice_line: dict[str, str] = {}
+    conflicting_line_ids: set[str] = set()
+
+    invoice_mismatches = groups.get("invoice_mismatches", [])
+
+    if not isinstance(invoice_mismatches, list):
+        raise ValueError("Report group invoice_mismatches must be a list.")
+
+    for mismatch in invoice_mismatches:
+        if not isinstance(mismatch, dict):
+            continue
+
+        customer_id = mismatch.get("customer_id")
+        if customer_id is None:
+            continue
+
+        line_ids = _affected_invoice_line_ids(
+            "invoice_mismatches",
+            mismatch,
+        )
+
+        for line_id in line_ids:
+            customer_id_str = str(customer_id)
+
+            if line_id in conflicting_line_ids:
+                continue
+
+            existing_customer = customer_by_invoice_line.get(line_id)
+
+            if existing_customer is None:
+                customer_by_invoice_line[line_id] = customer_id_str
+            elif existing_customer != customer_id_str:
+                # Do not assign an ambiguous customer.
+                customer_by_invoice_line.pop(line_id, None)
+                conflicting_line_ids.add(line_id)
+
     result_findings: list[AgentFinding] = []
     reviewed_evidence: list[EvidenceReference] = []
 
@@ -216,13 +262,21 @@ def build_agent_result(
                     f"Report entry {group}[{index}] must be an object."
                 )
 
-            finding = _to_agent_finding(group, index, item)
+            finding = _to_agent_finding(
+                group,
+                index,
+                item,
+                customer_by_invoice_line,
+            )
+
             result_findings.append(finding)
             reviewed_evidence.extend(finding.evidence)
 
     effective_case_id = case_id or report.get("case_id")
     if not effective_case_id:
-        raise ValueError("A case_id must be provided by the report or caller.")
+        raise ValueError(
+            "A case_id must be provided by the report or caller."
+        )
 
     summary = (
         f"{agent_name} mapped {len(result_findings)} deterministic finding(s)."
