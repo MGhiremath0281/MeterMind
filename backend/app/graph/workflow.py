@@ -16,11 +16,14 @@ from app.schemas.agent_result import (
     AgentStatus,
     EvidenceReference,
 )
-
+from app.services.billing_policy_rag import (
+    clear_policy_retrieval_audit,
+    get_policy_retrieval_audit,
+    retrieve_policy_context,
+)
 from app.services.investigation_grouper import (
     group_investigation_findings,
 )
-
 
 SPECIALISTS = {
     "event_agent": event_agent,
@@ -155,6 +158,41 @@ def collect_pricing_evidence(
 
     return list(evidence_by_id.values())
 
+
+def collect_policy_evidence(
+    policy_results: list[dict[str, Any]] | None = None,
+) -> list[EvidenceReference]:
+    """Convert retrieved policy metadata into traceable evidence references."""
+    if policy_results is None:
+        policy_results = get_policy_retrieval_audit()
+
+    evidence_by_id: dict[str, EvidenceReference] = {}
+
+    for item in policy_results:
+        document_id = item.get("document_id")
+        chunk_index = item.get("chunk_index")
+
+        if document_id is None or chunk_index is None:
+            continue
+
+        evidence_id = f"{document_id}:chunk-{chunk_index}"
+
+        description = (
+            f"Retrieved billing policy: {item.get('title')}; "
+            f"effective_from={item.get('effective_from')}; "
+            f"source_file={item.get('source_file')}; "
+            f"retrieval_query={item.get('query', 'pricing investigation')}"
+        )
+
+        evidence_by_id[evidence_id] = EvidenceReference(
+            evidence_id=evidence_id,
+            source="billing_policy_rag",
+            description=description[:1000],
+        )
+
+    return list(evidence_by_id.values())
+
+
 def result_for_agent(
     agent_name: str,
     report: dict[str, Any],
@@ -216,6 +254,8 @@ def result_for_agent(
 
     return result
 
+
+
 def run_specialist(
     state: MeterMindState,
     agent,
@@ -228,11 +268,47 @@ def run_specialist(
     errors = list(state.get("errors", []))
 
     try:
+        policy_evidence: list[EvidenceReference] = []
+
+        if agent_name == "pricing_agent":
+            # Explicit retrieval guarantees that policy evidence capture
+            # does not depend on whether the LLM calls its policy tool.
+            policy_query = (
+                "effective-dated pricing versions, pricing effective dates, "
+                "retroactive pricing changes, and deterministic billing "
+                "reconstruction rules"
+            )
+
+            policy_results = retrieve_policy_context(
+                policy_query,
+                k=3,
+            )
+
+            policy_evidence = collect_policy_evidence(policy_results)
+
         commentary = invoke_agent(agent, task)
 
-        # Findings come from deterministic evidence, not model prose.
+        # Structured findings and pricing evidence come from deterministic
+        # reconciliation data, not from the LLM's commentary.
         report = get_report()
         structured = result_for_agent(agent_name, report, case_id)
+
+        # Merge policy references with deterministic evidence without
+        # replacing either source.
+        if agent_name == "pricing_agent" and policy_evidence:
+            existing_evidence = {
+                item.evidence_id: item
+                for item in structured.evidence_reviewed
+            }
+
+            for item in policy_evidence:
+                existing_evidence[item.evidence_id] = item
+
+            structured = structured.model_copy(
+                update={
+                    "evidence_reviewed": list(existing_evidence.values())
+                }
+            )
 
         results[agent_name] = structured
         outputs[agent_name] = {
