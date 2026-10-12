@@ -12,3 +12,10 @@ backend/.env
 # Python cache files
 __pycache__/
 *.py[cod]
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Local ChromaDB vector store
+backend/data/chroma_billing_policies/

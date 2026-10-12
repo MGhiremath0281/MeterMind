@@ -1,10 +1,29 @@
 
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import InvestigationCase, InvestigationRun
+
+
+def _serialize_agent_results(
+    agent_results: dict[str, Any],
+) -> dict[str, Any]:
+    """Convert structured agent results into JSON-compatible dictionaries."""
+    serialized: dict[str, Any] = {}
+
+    for agent_name, agent_result in agent_results.items():
+        if hasattr(agent_result, "model_dump"):
+            serialized[agent_name] = agent_result.model_dump(mode="json")
+        elif isinstance(agent_result, dict):
+            serialized[agent_name] = agent_result
+        else:
+            raise TypeError(
+                f"Unsupported result type for agent {agent_name!r}: "
+                f"{type(agent_result).__name__}"
+            )
+
+    return serialized
 
 
 def persist_investigation(
@@ -14,6 +33,9 @@ def persist_investigation(
     """Persist one investigation run and its grouped cases atomically."""
     case_id = result["case_id"]
     cases = result.get("investigation_cases", [])
+    agent_results = _serialize_agent_results(
+        result.get("agent_results", {})
+    )
 
     try:
         existing = db.get(InvestigationRun, case_id)
@@ -34,9 +56,8 @@ def persist_investigation(
             case_count=len(cases),
             summary_json={
                 "errors": result.get("errors", []),
-                "agent_names": sorted(
-                    result.get("agent_results", {}).keys()
-                ),
+                "agent_names": sorted(agent_results.keys()),
+                "agent_results": agent_results,
             },
         )
         db.add(run)
@@ -66,6 +87,7 @@ def persist_investigation(
             "run_saved": True,
             "case_id": case_id,
             "investigation_cases_saved": len(cases),
+            "agent_results_saved": len(agent_results),
         }
 
     except Exception:
