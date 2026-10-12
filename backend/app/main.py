@@ -11,6 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.database import Base, engine, get_db
 from app.models import Customer, ReconciliationCase, AgentFinding
 from app.services.reconciliation import run_reconciliation
+from app.graph.workflow import run_investigation
+from app.services.investigation_persistence import persist_investigation
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = PROJECT_ROOT / "metermind_synthetic_fixture.json"
@@ -175,3 +177,30 @@ def fixture_overview():
             key: len(value) for key, value in fixture.items() if isinstance(value, list)
         },
     }
+
+
+@app.post("/api/v1/investigations/run")
+def run_and_save_investigation(
+    db: Session = Depends(get_db),
+):
+    try:
+        result = run_investigation()
+        persistence = persist_investigation(db, result)
+
+        return {
+            **result,
+            "persistence": persistence,
+        }
+
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not persist investigation results.",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Investigation execution failed.",
+        ) from exc
