@@ -9,8 +9,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import Base, engine, get_db
-from app.models import Customer, ReconciliationCase, AgentFinding
+from app.models import (
+    Customer,
+    ReconciliationCase,
+    AgentFinding,
+    InvestigationRun,
+    InvestigationCase,
+)
 from app.services.reconciliation import run_reconciliation
+from app.graph.workflow import run_investigation
+from app.services.investigation_persistence import persist_investigation
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = PROJECT_ROOT / "metermind_synthetic_fixture.json"
@@ -175,3 +183,143 @@ def fixture_overview():
             key: len(value) for key, value in fixture.items() if isinstance(value, list)
         },
     }
+
+
+@app.post("/api/v1/investigations/run")
+def run_and_save_investigation(
+    db: Session = Depends(get_db),
+):
+    try:
+        result = run_investigation()
+        persistence = persist_investigation(db, result)
+
+        return {
+            **result,
+            "persistence": persistence,
+        }
+
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not persist investigation results.",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Investigation execution failed.",
+        ) from exc
+
+
+@app.get("/api/v1/investigations")
+def list_investigations(db: Session = Depends(get_db)):
+    runs = (
+        db.query(InvestigationRun)
+        .order_by(InvestigationRun.created_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    return [
+        {
+            "case_id": run.case_id,
+            "audit_status": run.audit_status,
+            "supervisor_decision": run.supervisor_decision,
+            "supervisor_reason": run.supervisor_reason,
+            "retry_count": run.retry_count,
+            "case_count": run.case_count,
+            "created_at": (
+                run.created_at.isoformat()
+                if run.created_at
+                else None
+            ),
+        }
+        for run in runs
+    ]
+
+
+@app.get("/api/v1/investigations/{case_id}")
+def get_investigation(
+    case_id: str,
+    db: Session = Depends(get_db),
+):
+    run = db.get(InvestigationRun, case_id)
+
+    if run is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Investigation {case_id} not found",
+        )
+
+    cases = (
+        db.query(InvestigationCase)
+        .filter(InvestigationCase.run_id == case_id)
+        .order_by(InvestigationCase.id.asc())
+        .all()
+    )
+
+    return {
+        "case_id": run.case_id,
+        "audit_status": run.audit_status,
+        "supervisor_decision": run.supervisor_decision,
+        "supervisor_reason": run.supervisor_reason,
+        "retry_count": run.retry_count,
+        "case_count": run.case_count,
+        "summary": run.summary_json,
+        "created_at": (
+            run.created_at.isoformat()
+            if run.created_at
+            else None
+        ),
+        "investigation_cases": [
+            {
+                "group_key": case.group_key,
+                "customer_id": case.customer_id,
+                "finding_count": case.finding_count,
+                "categories": case.categories_json,
+                "finding_ids": case.finding_ids_json,
+                "invoice_line_ids": case.invoice_line_ids_json,
+                "findings": case.findings_json,
+                "evidence": case.evidence_json,
+                "requires_review": case.requires_review,
+            }
+            for case in cases
+        ],
+    }
+
+
+@app.get("/api/v1/investigations/{case_id}/cases")
+def list_investigation_cases(
+    case_id: str,
+    db: Session = Depends(get_db),
+):
+    run = db.get(InvestigationRun, case_id)
+
+    if run is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Investigation {case_id} not found",
+        )
+
+    cases = (
+        db.query(InvestigationCase)
+        .filter(InvestigationCase.run_id == case_id)
+        .order_by(InvestigationCase.id.asc())
+        .all()
+    )
+
+    return [
+        {
+            "group_key": case.group_key,
+            "customer_id": case.customer_id,
+            "finding_count": case.finding_count,
+            "categories": case.categories_json,
+            "finding_ids": case.finding_ids_json,
+            "invoice_line_ids": case.invoice_line_ids_json,
+            "findings": case.findings_json,
+            "evidence": case.evidence_json,
+            "requires_review": case.requires_review,
+        }
+        for case in cases
+    ]
