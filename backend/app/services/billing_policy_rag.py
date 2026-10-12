@@ -1,6 +1,8 @@
 
 from pathlib import Path
 import re
+from threading import Lock
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
@@ -15,6 +17,23 @@ VECTOR_DIR = BACKEND_DIR / "data" / "chroma_billing_policies"
 
 COLLECTION_NAME = "metermind_billing_policies"
 EMBEDDING_MODEL = "embeddinggemma:latest"
+
+
+# In-memory audit trail for retrieved policy passages.
+_retrieval_audit: list[dict[str, Any]] = []
+_retrieval_audit_lock = Lock()
+
+
+def clear_policy_retrieval_audit() -> None:
+    """Clear recorded policy retrievals."""
+    with _retrieval_audit_lock:
+        _retrieval_audit.clear()
+
+
+def get_policy_retrieval_audit() -> list[dict[str, Any]]:
+    """Return a snapshot of recorded policy retrievals."""
+    with _retrieval_audit_lock:
+        return [item.copy() for item in _retrieval_audit]
 
 
 def load_policy_documents() -> list[Document]:
@@ -85,7 +104,9 @@ def load_policy_documents() -> list[Document]:
             )
 
     if not documents:
-        raise ValueError(f"No Markdown policy documents found in {POLICY_DIR}")
+        raise ValueError(
+            f"No Markdown policy documents found in {POLICY_DIR}"
+        )
 
     return documents
 
@@ -94,7 +115,6 @@ def rebuild_policy_index() -> int:
     """Rebuild the local Chroma index from the current policy files."""
 
     documents = load_policy_documents()
-
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
 
     # Remove the previous collection so deleted or edited documents
@@ -127,7 +147,7 @@ def retrieve_policy_context(
     query: str,
     k: int = 3,
 ) -> list[dict]:
-    """Retrieve relevant policy passages with source metadata."""
+    """Retrieve policy passages and record their source metadata."""
 
     if not query.strip():
         raise ValueError("Query must not be empty.")
@@ -150,20 +170,40 @@ def retrieve_policy_context(
 
     matches = vector_store.similarity_search_with_score(query, k=k)
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     for document, distance in matches:
-        results.append(
+        metadata = document.metadata
+
+        item = {
+            "content": document.page_content,
+            "document_id": metadata.get("document_id"),
+            "title": metadata.get("title"),
+            "effective_from": metadata.get("effective_from"),
+            "source_file": metadata.get("source_file"),
+            "chunk_index": metadata.get("chunk_index"),
+            # Chroma returns a distance, not a probability.
+            "distance": float(distance),
+        }
+
+        results.append(item)
+
+    # Record what was actually retrieved, not what the LLM claims to cite.
+    if results:
+        audit_entries = [
             {
-                "content": document.page_content,
-                "document_id": document.metadata.get("document_id"),
-                "title": document.metadata.get("title"),
-                "effective_from": document.metadata.get("effective_from"),
-                "source_file": document.metadata.get("source_file"),
-                "chunk_index": document.metadata.get("chunk_index"),
-                # Chroma returns a distance here, not a probability.
-                "distance": float(distance),
+                "query": query,
+                "document_id": item["document_id"],
+                "title": item["title"],
+                "effective_from": item["effective_from"],
+                "source_file": item["source_file"],
+                "chunk_index": item["chunk_index"],
+                "distance": item["distance"],
             }
-        )
+            for item in results
+        ]
+
+        with _retrieval_audit_lock:
+            _retrieval_audit.extend(audit_entries)
 
     return results
