@@ -171,3 +171,66 @@ def test_failed_persistence_rolls_back(db, investigation_result):
         .count()
         == 0
     )
+
+
+def test_persists_agent_policy_evidence_in_summary(
+    db,
+    investigation_result,
+):
+    investigation_result["agent_results"] = {
+        "pricing_agent": {
+            "agent_name": "pricing_agent",
+            "status": "completed",
+            "findings": [],
+            "evidence_reviewed": [
+                {
+                    "evidence_id": "BILLING-POLICY-001:chunk-0",
+                    "source": "billing_policy_rag",
+                    "description": (
+                        "Retrieved billing policy: Usage Billing; "
+                        "effective_from=2026-01-01; "
+                        "source_file=usage_billing.md"
+                    ),
+                },
+                {
+                    "evidence_id": "PRICE-STARTER-V2",
+                    "source": "deterministic_pricing_reconstruction",
+                    "description": "STARTER pricing effective July 2026.",
+                },
+            ],
+        }
+    }
+
+    saved = persist_investigation(db, investigation_result)
+
+    assert saved["run_saved"] is True
+    assert saved["agent_results_saved"] == 1
+
+    # Reload the run from the database.
+    db.expire_all()
+    run = db.get(InvestigationRun, "TEST-INV-001")
+
+    assert run is not None
+
+    saved_agent = run.summary_json["agent_results"]["pricing_agent"]
+    evidence = saved_agent["evidence_reviewed"]
+
+    policy_evidence = [
+        item
+        for item in evidence
+        if item["source"] == "billing_policy_rag"
+    ]
+
+    assert len(policy_evidence) == 1
+    assert (
+        policy_evidence[0]["evidence_id"]
+        == "BILLING-POLICY-001:chunk-0"
+    )
+    assert policy_evidence[0]["description"].find(
+        "usage_billing.md"
+    ) != -1
+
+    assert any(
+        item["source"] == "deterministic_pricing_reconstruction"
+        for item in evidence
+    )
