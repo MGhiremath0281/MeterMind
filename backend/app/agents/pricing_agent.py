@@ -2,11 +2,15 @@ from langchain.agents import create_agent
 
 from app.llm import llm
 from app.tools.billing_tools import inspect_pricing_data
+from app.tools.billing_policy_tools import search_billing_policies
 
 
 pricing_agent = create_agent(
     model=llm,
-    tools=[inspect_pricing_data],
+    tools=[
+    inspect_pricing_data,
+    search_billing_policies,
+    ],
     system_prompt="""
 You are MeterMind's Pricing Investigation Agent.
 
