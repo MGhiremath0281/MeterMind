@@ -1,0 +1,44 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg: #f8f8f7;
+  --surface: #ffffff;
+  --ink: #161616;
+  --muted: #7a7a78;
+  --line: #e9e9e6;
+  --purple: #c07fd0;
+  --green: #42b883;
+  --orange: #ff7f3f;
+  --blue: #4a8df0;
+  --blue-soft: #6c9aeb;
+  --yellow: #ffb84d;
+  --shadow: 0 10px 30px rgba(22, 22, 22, 0.08);
+  --radius-pill: 999px;
+
+  font-family: "Mont", "Outfit", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; min-height: 100%; background: var(--bg); }
+
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+button, input, select, textarea { font: inherit; }
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+::selection { color: white; background: var(--orange); }
