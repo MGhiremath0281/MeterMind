@@ -19,3 +19,13 @@ __pycache__/
 
 # Local ChromaDB vector store
 backend/data/chroma_billing_policies/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.venv/
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.env
